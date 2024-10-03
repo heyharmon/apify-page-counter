@@ -1,11 +1,14 @@
 {
-    "name": "website-crawler",
+    "name": "apify-sitemap-crawler",
     "version": "0.0.1",
     "type": "module",
-    "description": "This is an example of a Crawlee project.",
+    "description": "Find sitemap.xml files and counts pages.",
     "dependencies": {
         "apify": "^3.1.12",
         "crawlee": "^3.0.0",
+        "puppeteer": "^23.5.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
         "url-parse": "^1.5.10"
     },
     "scripts": {

@@ -1,14 +1,14 @@
 {
-    "title": "Apify Cheerio Crawler",
-    "description": "This scrapes whole websites.",
+    "title": "Apify Sitemap Crawler",
+    "description": "Find sitemap.xml files and counts pages.",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
-        "startUrls": {
-            "title": "Start URLs",
-            "type": "array",
-            "description": "URLs to start with.",
-            "editor": "requestListSources"
+        "url": {
+            "title": "Url to check",
+            "type": "string",
+            "description": "Url to check.",
+            "editor": "textarea"
         },
         "maxRequestsPerCrawl": {
             "title": "Max Requests per Crawl",

@@ -1,10 +1,10 @@
-# Website Crawler - Cheerio via Crawlee
-Crawl the pages of a website, get wordcount and list of links on each page.
+# Apify Sitemap Crawler
+Find sitemap.xml files and counts pages.
 
 ## Commands
 Run crawl
 ```
-apify run or npm run start
+apify run --purge
 ```
 
 Login to Apify

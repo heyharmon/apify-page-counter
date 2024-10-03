@@ -1,100 +1,95 @@
-// For more information, see https://crawlee.dev/
+// main.js
 import { Actor } from 'apify';
-import { CheerioCrawler, Dataset } from 'crawlee';
-// import { getTitle } from './helpers/title.js'
-import { getLinks } from './helpers/links.js'
-// import { getIFrames } from './helpers/iframes.js'
-// import { getTables } from './helpers/tables.js'
-// import { getScripts } from './helpers/scripts.js'
-import { getBodyText } from './helpers/body.js'
-// import { getWordcount } from './helpers/count.js'
+import { CheerioCrawler, Dataset, RequestQueue, sleep, createRequestDebugInfo } from 'crawlee';
+import { possibleXmlUrls } from './consts.js'; // Ensure this imports correctly
 
 await Actor.init();
-// const input = await Actor.getInput() // The parameters you passed to the actor
 
-// Structure of input is defined in input_schema.json
-const {
-    startUrls = [{ url: 'https://acme.heyharmon.dev/'}],
-    maxRequestsPerCrawl = 100,
-} = await Actor.getInput() ?? {};
+// Get input
+let { url = 'https://youmoveme.com/', proxy } = await Actor.getInput() ?? {};
 
-// const proxyConfiguration = await Actor.createProxyConfiguration();
+if (url.match(/\/$/) !== null) {
+    url = url.replace(/\/$/, '');
+}
 
+// Open a RequestQueue
+const requestQueue = await RequestQueue.open();
+
+// Add the possible XML sitemap URLs to the RequestQueue
+for (const xmlUrl of possibleXmlUrls) {
+    const fullUrl = `${url}${xmlUrl}`;
+    await requestQueue.addRequest({ url: fullUrl });
+}
+
+// Create the crawler
 const crawler = new CheerioCrawler({
+    requestQueue,
+    maxConcurrency: 10, // Adjust based on your needs
+    maxRequestRetries: 2,
+    maxRequestsPerCrawl: 100,
     // proxyConfiguration,
-    maxRequestsPerCrawl,
-    async requestHandler({$, request, enqueueLinks, log}) {
-        // log.info(`THE REQUEST`, request);
+    async requestHandler({ request, response, body, $, log }) {
+        const responseStatus = response.statusCode;
 
-        // Enqueue discovered links
-        await enqueueLinks({
-            transformRequestFunction(request) {
-                // Ignore urls containing fragments
-                const blockedFragments = ['?', '#']
-                if (blockedFragments.some(frag => request.url.includes(frag))) return false
+        // Check if the loadedUrl differs from the original url
+        const originalUrl = request.url;
+        const loadedUrl = request.loadedUrl;
 
-                // Ignore urls to media
-                const blockedExtensions = ['.pdf', '.jpg', '.jpeg', '.png']
-                if (blockedExtensions.some(ext => request.url.endsWith(ext))) return false
-                
-                return request
-            }
-        })
+        let effectiveStatusCode = responseStatus;
 
-        // Get page information
-        const title = $('title').text();
-        if (title === '') {
-            title = 'Title not found'
+        // Logic to detect if the page is actually a 404
+        let isPageNotFound = false;
+
+        // Method 1: Check if loadedUrl is a known 404 page
+        if (loadedUrl !== originalUrl && loadedUrl.includes('/404')) {
+            isPageNotFound = true;
         }
-        
-        const links = getLinks($, request.url)
 
-        // const iframes = getIFrames($)
+        // Method 2: Analyze page content for 404 indicators
+        const pageTitle = $('title').text().toLowerCase();
+        const bodyText = $('body').text().toLowerCase();
 
-        // const scripts = getScripts($)
+        if (
+            pageTitle.includes('page not found') ||
+            bodyText.includes('page not found') ||
+            bodyText.includes('404 error')
+        ) {
+            isPageNotFound = true;
+        }
 
-        // const tables = getTables($) 
+        // If page is not found, set status code to 404
+        if (isPageNotFound) {
+            effectiveStatusCode = 404;
+        }
 
-        const body = getBodyText($)
+        // Save the body content
+        const htmlRaw = body.toString();
 
-        // const wordcount = getWordcount(body)
+        // Save the content to the key-value store
+        const key = `html_${Math.random()}`;
+        await Actor.setValue(`${key}.html`, htmlRaw, { contentType: 'text/html' });
+        const htmlUrl = `https://api.apify.com/v2/key-value-stores/${Actor.getEnv().defaultKeyValueStoreId}/records/${key}.html?disableRedirect=true`;
 
-        // let redirected = false;
-        // if (request.url != request.loadedUrl) {
-        //     redirected = true;
-        // }
-
-        // Log anything that might be useful to see during crawl.
-        log.info('---------');
-        log.info(`${title}`, { url: request.loadedUrl });
-        // log.info(`Crawling ${request.url}.`);
-        // log.info('html: ', $.text())
-        // console.log('Scripts: ', scripts)
-        // console.log('IFrames: ', iframes)
-        // console.log('Tables: ', tables)
-        log.info(`Links: `, links);
-        log.info('---------');
-
-        // Store the data
+        // Save the data to the dataset
         await Dataset.pushData({
-            // http_status: status,
-            title: title,
-            // wordcount: wordcount,
-            // redirected: redirected,
-            // requested_url: request.url,
-            url: request.loadedUrl,
-            // scripts: scripts,
-            // iframes: iframes,
-            links: links
-        })
-    }
+            url: originalUrl,
+            loadedUrl,
+            statusCode: effectiveStatusCode,
+            htmlUrl,
+        });
+
+        log.info(`${originalUrl} checked, status ${effectiveStatusCode}`);
+    },
+    async failedRequestHandler({ request }, error) {
+        console.log(`Request ${request.url} failed too many times (${error.message})`);
+        await Dataset.pushData({
+            url: request.url,
+            errorMessage: error.message,
+            '#debug': createRequestDebugInfo(request),
+        });
+    },
 });
 
-// await crawler.run(startUrls);
-// await crawler.run(['https://nuxt-scraper-testing-site.netlify.app']);
-// await crawler.run(['https://acme.heyharmon.dev']);
-
-// let startUrls = input ? input.startUrls : ['https://acme.heyharmon.dev']
-await crawler.run(startUrls)
+await crawler.run();
 
 await Actor.exit();

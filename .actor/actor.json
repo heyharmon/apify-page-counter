@@ -1,6 +1,6 @@
 {
 	"actorSpecification": 1,
-	"name": "apify-cheerio-crawler",
+	"name": "apify-sitemap-crawler",
 	"version": "0.1",
 	"buildTag": "latest",
 	"input": "./input_schema.json",
