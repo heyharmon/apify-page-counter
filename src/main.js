@@ -1,13 +1,13 @@
 // main.js
 import { Actor, log } from 'apify';
-import { CheerioCrawler, RequestQueue } from 'crawlee';
+import { CheerioCrawler, RequestQueue, Dataset } from 'crawlee';
 import cheerio from 'cheerio'; // Import cheerio for XML parsing
 import { possibleXmlUrls } from './consts.js'; // Ensure this imports correctly
 
 await Actor.init();
 
 // Get input
-let { url = 'https://youmoveme.com/', proxy } = (await Actor.getInput()) ?? {};
+let { url, proxy } = (await Actor.getInput()) ?? {};
 
 if (url.match(/\/$/) !== null) {
     url = url.replace(/\/$/, '');
@@ -68,5 +68,10 @@ const crawler = new CheerioCrawler({
 await crawler.run();
 
 log.info(`Total number of pages found: ${totalPages}`);
+
+// Store the data
+await Dataset.pushData({
+    totalPages: totalPages,
+})
 
 await Actor.exit();
