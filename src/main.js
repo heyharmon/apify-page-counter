@@ -7,23 +7,39 @@ import { possibleXmlUrls } from './consts.js'; // Ensure this imports correctly
 await Actor.init();
 
 // Get input
-let { url, proxy } = (await Actor.getInput()) ?? {};
+let { urls, proxy } = (await Actor.getInput()) ?? {};
 
-if (url.match(/\/$/) !== null) {
-    url = url.replace(/\/$/, '');
+// Ensure 'urls' is an array
+if (!Array.isArray(urls)) {
+    throw new Error('Input "urls" must be an array of URLs.');
 }
 
 // Open a RequestQueue
 const requestQueue = await RequestQueue.open();
 
-// Add the possible XML sitemap URLs to the RequestQueue
-for (const xmlUrl of possibleXmlUrls) {
-    const fullUrl = `${url}${xmlUrl}`;
-    await requestQueue.addRequest({ url: fullUrl });
-}
+// Initialize totalPages counter per URL
+let totalPagesPerUrl = {};
 
-// Initialize totalPages counter
-let totalPages = 0;
+// Process each URL in the input array
+for (const url of urls) {
+    let processedUrl = url;
+
+    if (processedUrl.match(/\/$/) !== null) {
+        processedUrl = processedUrl.replace(/\/$/, '');
+    }
+
+    // Initialize total pages for this URL
+    totalPagesPerUrl[processedUrl] = 0;
+
+    // Add the possible XML sitemap URLs to the RequestQueue
+    for (const xmlUrl of possibleXmlUrls) {
+        const fullUrl = `${processedUrl}${xmlUrl}`;
+        await requestQueue.addRequest({
+            url: fullUrl,
+            userData: { baseUrl: processedUrl },
+        });
+    }
+}
 
 // Create the crawler
 const crawler = new CheerioCrawler({
@@ -33,6 +49,7 @@ const crawler = new CheerioCrawler({
     maxRequestsPerCrawl: 1000, // Increase if needed
     async requestHandler({ request, response, body }) {
         const responseStatus = response.statusCode;
+        const baseUrl = request.userData.baseUrl;
 
         // Parse the body as XML
         const $ = cheerio.load(body, { xmlMode: true });
@@ -44,34 +61,46 @@ const crawler = new CheerioCrawler({
                 .get();
 
             for (const sitemapUrl of sitemapLocs) {
-                await requestQueue.addRequest({ url: sitemapUrl });
+                await requestQueue.addRequest({
+                    url: sitemapUrl,
+                    userData: { baseUrl },
+                });
             }
-            log.info(`Found sitemap index at ${request.url}, enqueued ${sitemapLocs.length} sitemaps.`);
+            log.info(
+                `Found sitemap index at ${request.url}, enqueued ${sitemapLocs.length} sitemaps.`
+            );
         } else if ($('urlset').length > 0) {
             // It's a sitemap
             const urls = $('urlset > url > loc')
                 .map((i, el) => $(el).text())
                 .get();
 
-            totalPages += urls.length;
+            totalPagesPerUrl[baseUrl] += urls.length;
 
-            log.info(`Found sitemap at ${request.url}, contains ${urls.length} URLs.`);
+            log.info(
+                `Found sitemap at ${request.url}, contains ${urls.length} URLs.`
+            );
         } else {
             log.info(`Unknown sitemap format at ${request.url}`);
         }
     },
     async failedRequestHandler({ request }, error) {
-        log.error(`Request ${request.url} failed too many times (${error.message})`);
+        log.error(
+            `Request ${request.url} failed too many times (${error.message})`
+        );
     },
 });
 
 await crawler.run();
 
-log.info(`Total number of pages found: ${totalPages}`);
+// Log and store the total pages per URL
+for (const [url, totalPages] of Object.entries(totalPagesPerUrl)) {
+    log.info(`Total number of pages found for ${url}: ${totalPages}`);
+}
 
 // Store the data
 await Dataset.pushData({
-    totalPages: totalPages,
-})
+    totalPagesPerUrl,
+});
 
 await Actor.exit();

@@ -4,12 +4,18 @@
     "type": "object",
     "schemaVersion": 1,
     "properties": {
-        "url": {
-            "title": "Url to check",
-            "type": "string",
-            "description": "Url to check.",
-            "editor": "textarea",
-			"default": "https://www.example.com"
+		"urls": {
+            "title": "URLs to check",
+            "type": "array",
+            "description": "An array of URLs to check.",
+            "editor": "stringList",
+            "default": [
+				"https://youmoveme.com",
+				"http://www.helpinghandsmovingutah.com"
+			],
+            "items": {
+                "type": "string"
+            }
         },
         "maxRequestsPerCrawl": {
             "title": "Max Requests per Crawl",
