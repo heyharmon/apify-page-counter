@@ -17,8 +17,8 @@ if (!Array.isArray(urls)) {
 // Open a RequestQueue
 const requestQueue = await RequestQueue.open();
 
-// Initialize totalPages counter per URL
-let totalPagesPerUrl = {};
+// Initialize an array to store total pages per URL
+let totalPagesArray = [];
 
 // Process each URL in the input array
 for (const url of urls) {
@@ -29,7 +29,7 @@ for (const url of urls) {
     }
 
     // Initialize total pages for this URL
-    totalPagesPerUrl[processedUrl] = 0;
+    totalPagesArray.push({ url: processedUrl, pages: 0 });
 
     // Add the possible XML sitemap URLs to the RequestQueue
     for (const xmlUrl of possibleXmlUrls) {
@@ -45,7 +45,7 @@ for (const url of urls) {
 const crawler = new CheerioCrawler({
     requestQueue,
     maxConcurrency: 10, // Adjust based on your needs
-    maxRequestRetries: 2,
+    maxRequestRetries: 0,
     maxRequestsPerCrawl: 1000, // Increase if needed
     async requestHandler({ request, response, body }) {
         const responseStatus = response.statusCode;
@@ -75,32 +75,34 @@ const crawler = new CheerioCrawler({
                 .map((i, el) => $(el).text())
                 .get();
 
-            totalPagesPerUrl[baseUrl] += urls.length;
+            // Find the object in totalPagesArray with the matching baseUrl
+            const totalPagesObj = totalPagesArray.find(obj => obj.url === baseUrl);
 
-            log.info(
-                `Found sitemap at ${request.url}, contains ${urls.length} URLs.`
-            );
+            if (totalPagesObj) {
+                totalPagesObj.pages += urls.length;
+            } else {
+                // If for some reason the baseUrl is not found, add it
+                totalPagesArray.push({ url: baseUrl, pages: urls.length });
+            }
+
+            log.info(`Found sitemap at ${request.url}, contains ${urls.length} URLs.`);
         } else {
             log.info(`Unknown sitemap format at ${request.url}`);
         }
     },
     async failedRequestHandler({ request }, error) {
-        log.error(
-            `Request ${request.url} failed too many times (${error.message})`
-        );
+        log.error(`Request ${request.url} failed too many times (${error.message})`);
     },
 });
 
 await crawler.run();
 
 // Log and store the total pages per URL
-for (const [url, totalPages] of Object.entries(totalPagesPerUrl)) {
-    log.info(`Total number of pages found for ${url}: ${totalPages}`);
+for (const { url, pages } of totalPagesArray) {
+    log.info(`Total number of pages found for ${url}: ${pages}`);
 }
 
 // Store the data
-await Dataset.pushData({
-    totalPagesPerUrl,
-});
+await Dataset.pushData(totalPagesArray);
 
 await Actor.exit();
