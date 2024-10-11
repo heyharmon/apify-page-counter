@@ -1,6 +1,6 @@
 {
-    "title": "Apify Sitemap Crawler",
-    "description": "Find sitemap.xml files and counts pages.",
+    "title": "Apify Page Counter",
+    "description": "Count website pages by crawling sitemap.xml files and counting pages.",
     "type": "object",
     "schemaVersion": 1,
     "properties": {

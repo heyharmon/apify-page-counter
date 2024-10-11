@@ -1,6 +1,6 @@
 {
 	"actorSpecification": 1,
-	"name": "apify-sitemap-crawler",
+	"name": "apify-page-counter",
 	"version": "0.1",
 	"buildTag": "latest",
 	"input": "./input_schema.json",

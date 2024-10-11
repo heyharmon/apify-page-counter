@@ -1,5 +1,5 @@
-# Apify Sitemap Crawler
-Find sitemap.xml files and counts pages.
+# Apify Page Counter
+Count website pages by crawling sitemap.xml files and counting pages.
 
 ## Commands
 Run crawl

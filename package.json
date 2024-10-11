@@ -1,8 +1,8 @@
 {
-    "name": "apify-sitemap-crawler",
+    "name": "apify-page-counter",
     "version": "0.0.1",
     "type": "module",
-    "description": "Find sitemap.xml files and counts pages.",
+    "description": "Count website pages by crawling sitemap.xml files and counting pages.",
     "dependencies": {
         "apify": "^3.1.12",
         "crawlee": "^3.0.0",
