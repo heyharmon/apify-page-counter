@@ -6,13 +6,11 @@ import { possibleXmlUrls } from './consts.js'; // Ensure this imports correctly
 
 await Actor.init();
 
-// Get input
-let { urls, proxy } = (await Actor.getInput()) ?? {};
-
-// Ensure 'urls' is an array
-if (!Array.isArray(urls)) {
-    throw new Error('Input "urls" must be an array of URLs.');
-}
+// Structure of input is defined in input_schema.json
+const {
+    url = 'https://static-scraper-testing-site.netlify.app',
+    maxRequestsPerCrawl = 999,
+} = await Actor.getInput() ?? {};
 
 // Open a RequestQueue
 const requestQueue = await RequestQueue.open();
@@ -29,7 +27,7 @@ for (const url of urls) {
     }
 
     // Initialize total pages for this URL
-    totalPagesArray.push({ url: processedUrl, pages: 0 });
+    totalPagesArray.push({ url: processedUrl, totalPages: 0 });
 
     // Add the possible XML sitemap URLs to the RequestQueue
     for (const xmlUrl of possibleXmlUrls) {
@@ -79,10 +77,10 @@ const crawler = new CheerioCrawler({
             const totalPagesObj = totalPagesArray.find(obj => obj.url === baseUrl);
 
             if (totalPagesObj) {
-                totalPagesObj.pages += urls.length;
+                totalPagesObj.totalPages += urls.length;
             } else {
                 // If for some reason the baseUrl is not found, add it
-                totalPagesArray.push({ url: baseUrl, pages: urls.length });
+                totalPagesArray.push({ url: baseUrl, totalPages: urls.length });
             }
 
             log.info(`Found sitemap at ${request.url}, contains ${urls.length} URLs.`);
